@@ -40122,8 +40122,8 @@ let config = {
     bucket: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)("r2-bucket", { required: true }),
     sourceDir: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)("source-dir", { required: true }),
     destinationDir: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)("destination-dir"),
-    cache: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getBooleanInput)("cache"),
     outputFileUrl: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)("output-file-url") === 'true',
+    cacheControl: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)("cache-control"),
 };
 const S3 = new _aws_sdk_client_s3__WEBPACK_IMPORTED_MODULE_6__.S3Client({
     region: "auto",
@@ -40172,7 +40172,7 @@ const run = async (config) => {
             Body: fileStream,
             ContentLength: fs__WEBPACK_IMPORTED_MODULE_2__.statSync(file).size,
             ContentType: mimeType ?? 'application/octet-stream',
-            ...(!config.cache ? { CacheControl: 'no-cache, no-store, max-age=0, s-maxage=0' } : {})
+            ...(!config.cacheControl ? { CacheControl: config.cacheControl } : {})
         };
         const cmd = new _aws_sdk_client_s3__WEBPACK_IMPORTED_MODULE_6__.PutObjectCommand(uploadParams);
         const digest = md5__WEBPACK_IMPORTED_MODULE_4___default()(fileStream);
