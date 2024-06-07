@@ -7,6 +7,8 @@ on:
 
 jobs:
   build:
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     permissions:
       contents: write
     name: Build and Update Mappings
@@ -32,3 +34,7 @@ jobs:
           commit_user_name: r2-action-bot[bot]
           commit_user_email: 118486773+r2-action-bot[bot]@users.noreply.github.com
           commit_author: r2-action-bot[bot] <118486773+r2-action-bot[bot]@users.noreply.github.com>
+      - name: Create release
+        uses: nbotond20/create-release@v2.0.1
+        with:
+          use-sem-ver: true
