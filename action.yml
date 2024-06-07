@@ -27,9 +27,8 @@ inputs:
     description: ''
     default: 'true'
     required: false
-  cache:
+  cache-control:
     description: ''
-    default: 'true'
     required: false
 outputs:
   result:

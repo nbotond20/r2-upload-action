@@ -19,8 +19,8 @@ let config: R2Config = {
     bucket: getInput("r2-bucket", { required: true }),
     sourceDir: getInput("source-dir", { required: true }),
     destinationDir: getInput("destination-dir"),
-    cache: getBooleanInput("cache"),
     outputFileUrl: getInput("output-file-url") === 'true',
+    cacheControl: getInput("cache-control"),
 };
 
 const S3 = new S3Client({
@@ -78,7 +78,7 @@ const run = async (config: R2Config) => {
             Body: fileStream,
             ContentLength: fs.statSync(file).size,
             ContentType: mimeType ?? 'application/octet-stream',
-            ...(!config.cache ? { CacheControl: 'no-cache, no-store, max-age=0, s-maxage=0' } : {})
+            ...(!config.cacheControl ? { CacheControl: config.cacheControl } : {})
         };
         
         const cmd = new PutObjectCommand(uploadParams);
