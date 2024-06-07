@@ -40172,7 +40172,7 @@ const run = async (config) => {
             Body: fileStream,
             ContentLength: fs__WEBPACK_IMPORTED_MODULE_2__.statSync(file).size,
             ContentType: mimeType ?? 'application/octet-stream',
-            ...(!config.cacheControl ? { CacheControl: config.cacheControl } : {})
+            ...(config.cacheControl ? { CacheControl: config.cacheControl } : {})
         };
         const cmd = new _aws_sdk_client_s3__WEBPACK_IMPORTED_MODULE_6__.PutObjectCommand(uploadParams);
         const digest = md5__WEBPACK_IMPORTED_MODULE_4___default()(fileStream);
