@@ -78,7 +78,7 @@ const run = async (config: R2Config) => {
             Body: fileStream,
             ContentLength: fs.statSync(file).size,
             ContentType: mimeType ?? 'application/octet-stream',
-            ...(!config.cacheControl ? { CacheControl: config.cacheControl } : {})
+            ...(config.cacheControl ? { CacheControl: config.cacheControl } : {})
         };
         
         const cmd = new PutObjectCommand(uploadParams);
