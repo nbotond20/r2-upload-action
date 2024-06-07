@@ -19,8 +19,8 @@ let config: R2Config = {
     bucket: getInput("r2-bucket", { required: true }),
     sourceDir: getInput("source-dir", { required: true }),
     destinationDir: getInput("destination-dir"),
+    cache: getBooleanInput("cache"),
     outputFileUrl: getInput("output-file-url") === 'true',
-    cache: getBooleanInput("cache")
 };
 
 const S3 = new S3Client({
