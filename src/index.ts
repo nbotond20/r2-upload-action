@@ -1,5 +1,5 @@
 import { R2Config, FileMap } from "./types.js";
-import { getInput, setOutput, setFailed } from "@actions/core";
+import { getInput, setOutput, setFailed, getBooleanInput } from "@actions/core";
 import {
     S3Client,
     PutObjectCommandInput,
@@ -19,7 +19,8 @@ let config: R2Config = {
     bucket: getInput("r2-bucket", { required: true }),
     sourceDir: getInput("source-dir", { required: true }),
     destinationDir: getInput("destination-dir"),
-    outputFileUrl: getInput("output-file-url") === 'true'
+    outputFileUrl: getInput("output-file-url") === 'true',
+    cache: getBooleanInput("cache")
 };
 
 const S3 = new S3Client({
@@ -76,7 +77,8 @@ const run = async (config: R2Config) => {
             Key: fileKey,
             Body: fileStream,
             ContentLength: fs.statSync(file).size,
-            ContentType: mimeType ?? 'application/octet-stream'
+            ContentType: mimeType ?? 'application/octet-stream',
+            ...(!config.cache ? { CacheControl: 'no-cache' } : {})
         };
         
         const cmd = new PutObjectCommand(uploadParams);

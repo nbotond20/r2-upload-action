@@ -50,6 +50,7 @@ See the latest [action.yml](https://github.com/ryand56/r2-upload-action/blob/mas
 | `r2-bucket` | **(Required)** Your Cloudflare R2 bucket name. | *N/A* |
 | `source-dir` | **(Required)** The directory to upload to the Cloudflare R2 bucket. | *N/A* |
 | `destination-dir` | (Optional) The destination to upload the directory to in the Cloudflare R2 bucket. | Empty string |
+| `cache` | (Optional) Whether to add cache headers or not. (If `false` `CacheControl` is set to `no-cache` ) | `true` |
 
 <!-- ACTION OUTPUTS -->
 ## Outputs
