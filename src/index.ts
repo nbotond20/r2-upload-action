@@ -57,18 +57,18 @@ const run = async (config: R2Config) => {
 
     const files: string[] = getFileList(config.sourceDir);
 
-    for (const file of files) {
+    const uploadPromises = files.map(async (file) => {
         console.log(file);
         const fileStream = fs.readFileSync(file);
         console.log(config.sourceDir);
         console.log(config.destinationDir);
-        //const fileName = file.replace(/^.*[\\\/]/, "");
         const fileName = file.replace(config.sourceDir, "");
         const fileKey = path.join(config.destinationDir !== "" ? config.destinationDir : config.sourceDir, fileName);
 
-        if (fileKey.includes('.gitkeep'))
-            continue;
-        
+        if (fileKey.includes('.gitkeep')) {
+            return; // Skip the current iteration
+        }
+
         console.log(fileKey);
         const mimeType = mime.getType(file);
 
@@ -80,7 +80,7 @@ const run = async (config: R2Config) => {
             ContentType: mimeType ?? 'application/octet-stream',
             ...(config.cacheControl ? { CacheControl: config.cacheControl } : {})
         };
-        
+
         const cmd = new PutObjectCommand(uploadParams);
 
         const digest = md5(fileStream);
@@ -107,7 +107,9 @@ const run = async (config: R2Config) => {
                     throw error;
             }
         }
-    }
+    });
+
+    await Promise.all(uploadPromises); // Wait for all uploads to finish
 
     if (config.outputFileUrl) setOutput('file-urls', urls);
     return map;
