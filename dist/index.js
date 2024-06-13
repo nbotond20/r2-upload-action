@@ -40154,16 +40154,16 @@ const run = async (config) => {
     const map = new Map();
     const urls = {};
     const files = getFileList(config.sourceDir);
-    for (const file of files) {
+    const uploadPromises = files.map(async (file) => {
         console.log(file);
         const fileStream = fs__WEBPACK_IMPORTED_MODULE_2__.readFileSync(file);
         console.log(config.sourceDir);
         console.log(config.destinationDir);
-        //const fileName = file.replace(/^.*[\\\/]/, "");
         const fileName = file.replace(config.sourceDir, "");
         const fileKey = path__WEBPACK_IMPORTED_MODULE_5___default().join(config.destinationDir !== "" ? config.destinationDir : config.sourceDir, fileName);
-        if (fileKey.includes('.gitkeep'))
-            continue;
+        if (fileKey.includes('.gitkeep')) {
+            return; // Skip the current iteration
+        }
         console.log(fileKey);
         const mimeType = mime__WEBPACK_IMPORTED_MODULE_3___default().getType(file);
         const uploadParams = {
@@ -40197,7 +40197,8 @@ const run = async (config) => {
                     throw error;
             }
         }
-    }
+    });
+    await Promise.all(uploadPromises); // Wait for all uploads to finish
     if (config.outputFileUrl)
         (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.setOutput)('file-urls', urls);
     return map;
