@@ -39979,7 +39979,7 @@ const getFileList = (dir) => {
     }
     return files;
 };
-const BATCH_SIZE = 2;
+const BATCH_SIZE = 25;
 const run = async (config) => {
     const files = getFileList(config.sourceDir);
     const fileBatches = createBatches(files, BATCH_SIZE);

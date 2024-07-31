@@ -51,7 +51,7 @@ const getFileList = (dir: string) => {
 	return files;
 };
 
-const BATCH_SIZE = 2;
+const BATCH_SIZE = 25;
 
 const run = async (config: R2Config) => {
 	const files: string[] = getFileList(config.sourceDir);
