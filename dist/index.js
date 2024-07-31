@@ -24667,148 +24667,6 @@ exports.getUserAgentPlugin = getUserAgentPlugin;
 
 /***/ }),
 
-/***/ 22888:
-/***/ ((__unused_webpack_module, exports) => {
-
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ALGORITHM_IDENTIFIER = exports.HOST_HEADER = exports.EXPIRES_QUERY_PARAM = exports.SIGNED_HEADERS_QUERY_PARAM = exports.AMZ_DATE_QUERY_PARAM = exports.CREDENTIAL_QUERY_PARAM = exports.ALGORITHM_QUERY_PARAM = exports.SHA256_HEADER = exports.UNSIGNED_PAYLOAD = void 0;
-exports.UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
-exports.SHA256_HEADER = "X-Amz-Content-Sha256";
-exports.ALGORITHM_QUERY_PARAM = "X-Amz-Algorithm";
-exports.CREDENTIAL_QUERY_PARAM = "X-Amz-Credential";
-exports.AMZ_DATE_QUERY_PARAM = "X-Amz-Date";
-exports.SIGNED_HEADERS_QUERY_PARAM = "X-Amz-SignedHeaders";
-exports.EXPIRES_QUERY_PARAM = "X-Amz-Expires";
-exports.HOST_HEADER = "host";
-exports.ALGORITHM_IDENTIFIER = "AWS4-HMAC-SHA256";
-
-
-/***/ }),
-
-/***/ 29985:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getSignedUrl = void 0;
-const util_format_url_1 = __nccwpck_require__(9484);
-const middleware_endpoint_1 = __nccwpck_require__(28991);
-const protocol_http_1 = __nccwpck_require__(25404);
-const presigner_1 = __nccwpck_require__(2286);
-const getSignedUrl = async (client, command, options = {}) => {
-    var _a, _b;
-    let s3Presigner;
-    if (typeof client.config.endpointProvider === "function") {
-        const endpointV2 = await (0, middleware_endpoint_1.getEndpointFromInstructions)(command.input, command.constructor, client.config);
-        const authScheme = (_b = (_a = endpointV2.properties) === null || _a === void 0 ? void 0 : _a.authSchemes) === null || _b === void 0 ? void 0 : _b[0];
-        s3Presigner = new presigner_1.S3RequestPresigner({
-            ...client.config,
-            signingName: authScheme === null || authScheme === void 0 ? void 0 : authScheme.signingName,
-            region: async () => authScheme === null || authScheme === void 0 ? void 0 : authScheme.signingRegion,
-        });
-    }
-    else {
-        s3Presigner = new presigner_1.S3RequestPresigner(client.config);
-    }
-    const presignInterceptMiddleware = (next, context) => async (args) => {
-        var _a, _b;
-        const { request } = args;
-        if (!protocol_http_1.HttpRequest.isInstance(request)) {
-            throw new Error("Request to be presigned is not an valid HTTP request.");
-        }
-        delete request.headers["amz-sdk-invocation-id"];
-        delete request.headers["amz-sdk-request"];
-        delete request.headers["x-amz-user-agent"];
-        const presigned = await s3Presigner.presign(request, {
-            ...options,
-            signingRegion: (_a = options.signingRegion) !== null && _a !== void 0 ? _a : context["signing_region"],
-            signingService: (_b = options.signingService) !== null && _b !== void 0 ? _b : context["signing_service"],
-        });
-        return {
-            response: {},
-            output: {
-                $metadata: { httpStatusCode: 200 },
-                presigned,
-            },
-        };
-    };
-    const middlewareName = "presignInterceptMiddleware";
-    const clientStack = client.middlewareStack.clone();
-    clientStack.addRelativeTo(presignInterceptMiddleware, {
-        name: middlewareName,
-        relation: "before",
-        toMiddleware: "awsAuthMiddleware",
-        override: true,
-    });
-    const handler = command.resolveMiddleware(clientStack, client.config, {});
-    const { output } = await handler({ input: command.input });
-    const { presigned } = output;
-    return (0, util_format_url_1.formatUrl)(presigned);
-};
-exports.getSignedUrl = getSignedUrl;
-
-
-/***/ }),
-
-/***/ 43275:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-const tslib_1 = __nccwpck_require__(22872);
-tslib_1.__exportStar(__nccwpck_require__(29985), exports);
-tslib_1.__exportStar(__nccwpck_require__(2286), exports);
-
-
-/***/ }),
-
-/***/ 2286:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.S3RequestPresigner = void 0;
-const signature_v4_multi_region_1 = __nccwpck_require__(17616);
-const constants_1 = __nccwpck_require__(22888);
-class S3RequestPresigner {
-    constructor(options) {
-        const resolvedOptions = {
-            service: options.signingName || options.service || "s3",
-            uriEscapePath: options.uriEscapePath || false,
-            applyChecksum: options.applyChecksum || false,
-            ...options,
-        };
-        this.signer = new signature_v4_multi_region_1.SignatureV4MultiRegion(resolvedOptions);
-    }
-    presign(requestToSign, { unsignableHeaders = new Set(), unhoistableHeaders = new Set(), ...options } = {}) {
-        unsignableHeaders.add("content-type");
-        Object.keys(requestToSign.headers)
-            .map((header) => header.toLowerCase())
-            .filter((header) => header.startsWith("x-amz-server-side-encryption"))
-            .forEach((header) => {
-            unhoistableHeaders.add(header);
-        });
-        requestToSign.headers[constants_1.SHA256_HEADER] = constants_1.UNSIGNED_PAYLOAD;
-        const currentHostHeader = requestToSign.headers.host;
-        const port = requestToSign.port;
-        const expectedHostHeader = `${requestToSign.hostname}${requestToSign.port != null ? ":" + port : ""}`;
-        if (!currentHostHeader || (currentHostHeader === requestToSign.hostname && requestToSign.port != null)) {
-            requestToSign.headers.host = expectedHostHeader;
-        }
-        return this.signer.presign(requestToSign, {
-            expiresIn: 900,
-            unsignableHeaders,
-            unhoistableHeaders,
-            ...options,
-        });
-    }
-}
-exports.S3RequestPresigner = S3RequestPresigner;
-
-
-/***/ }),
-
 /***/ 57936:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -27427,47 +27285,6 @@ exports.getReferenceValue = getReferenceValue;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const tslib_1 = __nccwpck_require__(22872);
 tslib_1.__exportStar(__nccwpck_require__(73702), exports);
-
-
-/***/ }),
-
-/***/ 9484:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.formatUrl = void 0;
-const querystring_builder_1 = __nccwpck_require__(47146);
-function formatUrl(request) {
-    var _a, _b;
-    const { port, query } = request;
-    let { protocol, path, hostname } = request;
-    if (protocol && protocol.slice(-1) !== ":") {
-        protocol += ":";
-    }
-    if (port) {
-        hostname += `:${port}`;
-    }
-    if (path && path.charAt(0) !== "/") {
-        path = `/${path}`;
-    }
-    let queryString = query ? (0, querystring_builder_1.buildQueryString)(query) : "";
-    if (queryString && queryString[0] !== "?") {
-        queryString = `?${queryString}`;
-    }
-    let auth = "";
-    if (request.username != null || request.password != null) {
-        const username = (_a = request.username) !== null && _a !== void 0 ? _a : "";
-        const password = (_b = request.password) !== null && _b !== void 0 ? _b : "";
-        auth = `${username}:${password}@`;
-    }
-    let fragment = "";
-    if (request.fragment) {
-        fragment = `#${request.fragment}`;
-    }
-    return `${protocol}//${auth}${hostname}${path}${queryString}${fragment}`;
-}
-exports.formatUrl = formatUrl;
 
 
 /***/ }),
@@ -40094,38 +39911,50 @@ module.exports = JSON.parse('{"partitions":[{"id":"aws","outputs":{"dnsSuffix":"
 var __webpack_exports__ = {};
 // This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
 (() => {
-/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(90683);
-/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__nccwpck_require__.n(_actions_core__WEBPACK_IMPORTED_MODULE_0__);
-/* harmony import */ var _aws_sdk_client_s3__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(67032);
-/* harmony import */ var _aws_sdk_client_s3__WEBPACK_IMPORTED_MODULE_6___default = /*#__PURE__*/__nccwpck_require__.n(_aws_sdk_client_s3__WEBPACK_IMPORTED_MODULE_6__);
-/* harmony import */ var _aws_sdk_s3_request_presigner__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(43275);
-/* harmony import */ var _aws_sdk_s3_request_presigner__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__nccwpck_require__.n(_aws_sdk_s3_request_presigner__WEBPACK_IMPORTED_MODULE_1__);
-/* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(57147);
-/* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__nccwpck_require__.n(fs__WEBPACK_IMPORTED_MODULE_2__);
-/* harmony import */ var mime__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(21322);
-/* harmony import */ var mime__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__nccwpck_require__.n(mime__WEBPACK_IMPORTED_MODULE_3__);
-/* harmony import */ var md5__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(69209);
-/* harmony import */ var md5__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__nccwpck_require__.n(md5__WEBPACK_IMPORTED_MODULE_4__);
-/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(71017);
-/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__nccwpck_require__.n(path__WEBPACK_IMPORTED_MODULE_5__);
 
-
-
-
-
-
-
-let config = {
-    accountId: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)("r2-account-id", { required: true }),
-    accessKeyId: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)("r2-access-key-id", { required: true }),
-    secretAccessKey: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)("r2-secret-access-key", { required: true }),
-    bucket: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)("r2-bucket", { required: true }),
-    sourceDir: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)("source-dir", { required: true }),
-    destinationDir: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)("destination-dir"),
-    outputFileUrl: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)("output-file-url") === 'true',
-    cacheControl: (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput)("cache-control"),
+// EXTERNAL MODULE: ./node_modules/.pnpm/@actions+core@1.10.1/node_modules/@actions/core/lib/core.js
+var core = __nccwpck_require__(90683);
+// EXTERNAL MODULE: ./node_modules/.pnpm/@aws-sdk+client-s3@3.395.0/node_modules/@aws-sdk/client-s3/dist-cjs/index.js
+var dist_cjs = __nccwpck_require__(67032);
+// EXTERNAL MODULE: external "fs"
+var external_fs_ = __nccwpck_require__(57147);
+// EXTERNAL MODULE: ./node_modules/.pnpm/mime@3.0.0/node_modules/mime/index.js
+var mime = __nccwpck_require__(21322);
+var mime_default = /*#__PURE__*/__nccwpck_require__.n(mime);
+// EXTERNAL MODULE: ./node_modules/.pnpm/md5@2.3.0/node_modules/md5/md5.js
+var md5 = __nccwpck_require__(69209);
+var md5_default = /*#__PURE__*/__nccwpck_require__.n(md5);
+// EXTERNAL MODULE: external "path"
+var external_path_ = __nccwpck_require__(71017);
+var external_path_default = /*#__PURE__*/__nccwpck_require__.n(external_path_);
+;// CONCATENATED MODULE: ./src/createBatches.ts
+const createBatches = (items, batchSize) => {
+    const batches = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+        batches.push(items.slice(i, i + batchSize));
+    }
+    return batches;
 };
-const S3 = new _aws_sdk_client_s3__WEBPACK_IMPORTED_MODULE_6__.S3Client({
+
+;// CONCATENATED MODULE: ./src/index.ts
+
+
+
+
+
+
+
+const config = {
+    accountId: (0,core.getInput)("r2-account-id", { required: true }),
+    accessKeyId: (0,core.getInput)("r2-access-key-id", { required: true }),
+    secretAccessKey: (0,core.getInput)("r2-secret-access-key", { required: true }),
+    bucket: (0,core.getInput)("r2-bucket", { required: true }),
+    sourceDir: (0,core.getInput)("source-dir", { required: true }),
+    destinationDir: (0,core.getInput)("destination-dir"),
+    outputFileUrl: (0,core.getInput)("output-file-url") === "true",
+    cacheControl: (0,core.getInput)("cache-control"),
+};
+const S3 = new dist_cjs.S3Client({
     region: "auto",
     endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
     credentials: {
@@ -40135,7 +39964,7 @@ const S3 = new _aws_sdk_client_s3__WEBPACK_IMPORTED_MODULE_6__.S3Client({
 });
 const getFileList = (dir) => {
     let files = [];
-    const items = fs__WEBPACK_IMPORTED_MODULE_2__.readdirSync(dir, {
+    const items = external_fs_.readdirSync(dir, {
         withFileTypes: true,
     });
     for (const item of items) {
@@ -40150,70 +39979,68 @@ const getFileList = (dir) => {
     }
     return files;
 };
+const BATCH_SIZE = 10;
 const run = async (config) => {
-    const map = new Map();
-    const urls = {};
     const files = getFileList(config.sourceDir);
-    const uploadPromises = files.map(async (file) => {
-        console.log(file);
-        const fileStream = fs__WEBPACK_IMPORTED_MODULE_2__.readFileSync(file);
-        console.log(config.sourceDir);
-        console.log(config.destinationDir);
-        const fileName = file.replace(config.sourceDir, "");
-        const fileKey = path__WEBPACK_IMPORTED_MODULE_5___default().join(config.destinationDir !== "" ? config.destinationDir : config.sourceDir, fileName);
-        if (fileKey.includes('.gitkeep')) {
-            return; // Skip the current iteration
-        }
-        console.log(fileKey);
-        const mimeType = mime__WEBPACK_IMPORTED_MODULE_3___default().getType(file);
-        const uploadParams = {
-            Bucket: config.bucket,
-            Key: fileKey,
-            Body: fileStream,
-            ContentLength: fs__WEBPACK_IMPORTED_MODULE_2__.statSync(file).size,
-            ContentType: mimeType ?? 'application/octet-stream',
-            ...(config.cacheControl ? { CacheControl: config.cacheControl } : {})
-        };
-        const cmd = new _aws_sdk_client_s3__WEBPACK_IMPORTED_MODULE_6__.PutObjectCommand(uploadParams);
-        const digest = md5__WEBPACK_IMPORTED_MODULE_4___default()(fileStream);
-        cmd.middlewareStack.add((next) => async (args) => {
-            args.request.headers['if-none-match'] = `"${digest}"`;
-            return await next(args);
-        }, {
-            step: 'build',
-            name: 'addETag'
-        });
-        try {
-            const data = await S3.send(cmd);
-            console.log(`R2 Success - ${file}`);
-            map.set(file, data);
-            const fileUrl = await (0,_aws_sdk_s3_request_presigner__WEBPACK_IMPORTED_MODULE_1__.getSignedUrl)(S3, cmd);
-            urls[file] = fileUrl;
-        }
-        catch (err) {
-            const error = err;
-            if (error.hasOwnProperty("$metadata")) {
-                if (error.$metadata.httpStatusCode !== 412) // If-None-Match
-                    throw error;
+    const fileBatches = createBatches(files, BATCH_SIZE);
+    for (let i = 0; i < fileBatches.length; i++) {
+        const batch = fileBatches[i];
+        const uploadPromises = batch.map(async (file) => {
+            console.log(file);
+            const fileStream = external_fs_.readFileSync(file);
+            console.log(config.sourceDir);
+            console.log(config.destinationDir);
+            const fileName = file.replace(config.sourceDir, "");
+            const fileKey = external_path_default().join(config.destinationDir !== "" ? config.destinationDir : config.sourceDir, fileName);
+            if (fileKey.includes(".gitkeep")) {
+                return; // Skip the current iteration
             }
-        }
-    });
-    await Promise.all(uploadPromises); // Wait for all uploads to finish
-    if (config.outputFileUrl)
-        (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.setOutput)('file-urls', urls);
-    return map;
+            console.log(fileKey);
+            const mimeType = mime_default().getType(file);
+            const uploadParams = {
+                Bucket: config.bucket,
+                Key: fileKey,
+                Body: fileStream,
+                ContentLength: external_fs_.statSync(file).size,
+                ContentType: mimeType ?? "application/octet-stream",
+                ...(config.cacheControl ? { CacheControl: config.cacheControl } : {}),
+            };
+            const cmd = new dist_cjs.PutObjectCommand(uploadParams);
+            const digest = md5_default()(fileStream);
+            cmd.middlewareStack.add((next) => async (args) => {
+                args.request.headers["if-none-match"] = `"${digest}"`;
+                return await next(args);
+            }, {
+                step: "build",
+                name: "addETag",
+            });
+            S3.send(cmd)
+                .then(() => {
+                console.log(`R2 Success - ${file}`);
+            })
+                .catch((err) => {
+                const error = err;
+                if (error.hasOwnProperty("$metadata")) {
+                    if (error.$metadata.httpStatusCode !== 412)
+                        // If-None-Match
+                        throw error;
+                }
+            });
+        });
+        await Promise.all(uploadPromises);
+    }
 };
 run(config)
-    .then(result => (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.setOutput)('result', 'success'))
-    .catch(err => {
-    if (err.hasOwnProperty('$metadata')) {
+    .then((result) => (0,core.setOutput)("result", "success"))
+    .catch((err) => {
+    if (err.hasOwnProperty("$metadata")) {
         console.error(`R2 Error - ${err.message}`);
     }
     else {
-        console.error('Error', err);
+        console.error("Error", err);
     }
-    (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.setOutput)('result', 'failure');
-    (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed)(err.message);
+    (0,core.setOutput)("result", "failure");
+    (0,core.setFailed)(err.message);
 });
 
 })();
