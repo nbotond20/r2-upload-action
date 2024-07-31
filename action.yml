@@ -30,6 +30,9 @@ inputs:
   cache-control:
     description: ''
     required: false
+  batch-size:
+    description: ''
+    required: false
 outputs:
   result:
     description: '`success` or `failure`'

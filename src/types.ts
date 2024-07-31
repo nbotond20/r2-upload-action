@@ -7,6 +7,7 @@ export interface R2Config {
     destinationDir: string
     outputFileUrl: boolean
     cacheControl: string
+    batchSize: number
 }
 
 export interface FileMap {

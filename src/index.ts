@@ -21,6 +21,7 @@ const config: R2Config = {
 	destinationDir: getInput("destination-dir"),
 	outputFileUrl: getInput("output-file-url") === "true",
 	cacheControl: getInput("cache-control"),
+	batchSize: Number.parseInt(getInput("batch-size") || "1"),
 };
 
 const S3 = new S3Client({
@@ -51,14 +52,12 @@ const getFileList = (dir: string) => {
 	return files;
 };
 
-const BATCH_SIZE = 25;
-
 const run = async (config: R2Config) => {
 	const files: string[] = getFileList(config.sourceDir);
-	const fileBatches = createBatches(files, BATCH_SIZE);
+	const fileBatches = createBatches(files, config.batchSize);
 
 	console.log("Files count: ", files.length);
-	console.log("Batch size: ", BATCH_SIZE);
+	console.log("Batch size: ", config.batchSize);
 	console.log("Batch count: ", fileBatches.length);
 
 	for (let i = 0; i < fileBatches.length; i++) {

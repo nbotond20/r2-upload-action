@@ -51,6 +51,7 @@ See the latest [action.yml](https://github.com/ryand56/r2-upload-action/blob/mas
 | `source-dir` | **(Required)** The directory to upload to the Cloudflare R2 bucket. | *N/A* |
 | `destination-dir` | (Optional) The destination to upload the directory to in the Cloudflare R2 bucket. | Empty string |
 | `cache-control` | (Optional) Add cache control headers to the files uploaded | *N/A* |
+| `batch-size` | (Optional) The number of files to upload in a single batch. | 1 |
 
 <!-- ACTION OUTPUTS -->
 ## Outputs
@@ -58,7 +59,6 @@ See the latest [action.yml](https://github.com/ryand56/r2-upload-action/blob/mas
 | Name | Description |
 | --- | --- |
 | `result` | Result of this action. Either `success` or `failure` is set. |
-| `file-urls` | The URLs of the uploaded files in the directory. |
 
 <!-- CONTRIBUTING -->
 ## Contributing
