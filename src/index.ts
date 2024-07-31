@@ -6,7 +6,6 @@ import {
 	PutObjectCommand,
 	type S3ServiceException,
 } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import * as fs from "fs";
 import mime from "mime";
 import md5 from "md5";
@@ -58,13 +57,19 @@ const run = async (config: R2Config) => {
 	const files: string[] = getFileList(config.sourceDir);
 	const fileBatches = createBatches(files, BATCH_SIZE);
 
+	console.log("Files count: ", files.length);
+	console.log("Batch size: ", BATCH_SIZE);
+	console.log("Batch count: ", fileBatches.length);
+
 	for (let i = 0; i < fileBatches.length; i++) {
+		console.log(`Batch ${i + 1} of ${fileBatches.length}`);
 		const batch = fileBatches[i];
+		console.time(`Batch ${i + 1}`);
 		const uploadPromises = batch.map(async (file) => {
-			console.log(file);
+			console.log(`R2 Uploading - ${file}`);
+
 			const fileStream = fs.readFileSync(file);
-			console.log(config.sourceDir);
-			console.log(config.destinationDir);
+
 			const fileName = file.replace(config.sourceDir, "");
 			const fileKey = path.join(
 				config.destinationDir !== "" ? config.destinationDir : config.sourceDir,
@@ -75,7 +80,6 @@ const run = async (config: R2Config) => {
 				return; // Skip the current iteration
 			}
 
-			console.log(fileKey);
 			const mimeType = mime.getType(file);
 
 			const uploadParams: PutObjectCommandInput = {
@@ -104,7 +108,7 @@ const run = async (config: R2Config) => {
 
 			S3.send(cmd)
 				.then(() => {
-					console.log(`R2 Success - ${file}`);
+					console.log(`✔️ R2 Uploaded - ${file}`);
 				})
 				.catch((err) => {
 					const error = err as S3ServiceException;
@@ -116,7 +120,10 @@ const run = async (config: R2Config) => {
 				});
 		});
 
-		await Promise.all(uploadPromises);
+		await Promise.allSettled(uploadPromises);
+
+		console.timeEnd(`Batch ${i + 1}`);
+		console.log("✅ Batch done");
 	}
 };
 
