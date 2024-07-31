@@ -1,129 +1,134 @@
-import { R2Config, FileMap } from "./types.js";
-import { getInput, setOutput, setFailed, getBooleanInput } from "@actions/core";
+import type { R2Config } from "./types.js";
+import { getInput, setOutput, setFailed } from "@actions/core";
 import {
-    S3Client,
-    PutObjectCommandInput,
-    PutObjectCommand,
-    PutObjectCommandOutput,
-    S3ServiceException
+	S3Client,
+	type PutObjectCommandInput,
+	PutObjectCommand,
+	type S3ServiceException,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import * as fs from "fs";
 import mime from "mime";
 import md5 from "md5";
 import path from "path";
-let config: R2Config = {
-    accountId: getInput("r2-account-id", { required: true }),
-    accessKeyId: getInput("r2-access-key-id", { required: true }),
-    secretAccessKey: getInput("r2-secret-access-key", { required: true }),
-    bucket: getInput("r2-bucket", { required: true }),
-    sourceDir: getInput("source-dir", { required: true }),
-    destinationDir: getInput("destination-dir"),
-    outputFileUrl: getInput("output-file-url") === 'true',
-    cacheControl: getInput("cache-control"),
+import { createBatches } from "./createBatches.js";
+
+const config: R2Config = {
+	accountId: getInput("r2-account-id", { required: true }),
+	accessKeyId: getInput("r2-access-key-id", { required: true }),
+	secretAccessKey: getInput("r2-secret-access-key", { required: true }),
+	bucket: getInput("r2-bucket", { required: true }),
+	sourceDir: getInput("source-dir", { required: true }),
+	destinationDir: getInput("destination-dir"),
+	outputFileUrl: getInput("output-file-url") === "true",
+	cacheControl: getInput("cache-control"),
 };
 
 const S3 = new S3Client({
-    region: "auto",
-    endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
-    credentials: {
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-    },
+	region: "auto",
+	endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
+	credentials: {
+		accessKeyId: config.accessKeyId,
+		secretAccessKey: config.secretAccessKey,
+	},
 });
 
 const getFileList = (dir: string) => {
-    let files: string[] = [];
-    const items = fs.readdirSync(dir, {
-        withFileTypes: true,
-    });
+	let files: string[] = [];
+	const items = fs.readdirSync(dir, {
+		withFileTypes: true,
+	});
 
-    for (const item of items) {
-        const isDir = item.isDirectory();
-        const absolutePath = `${dir}/${item.name}`;
-        if (isDir) {
-            files = [...files, ...getFileList(absolutePath)];
-        } else {
-            files.push(absolutePath);
-        }
-    }
+	for (const item of items) {
+		const isDir = item.isDirectory();
+		const absolutePath = `${dir}/${item.name}`;
+		if (isDir) {
+			files = [...files, ...getFileList(absolutePath)];
+		} else {
+			files.push(absolutePath);
+		}
+	}
 
-    return files;
+	return files;
 };
 
+const BATCH_SIZE = 10;
+
 const run = async (config: R2Config) => {
-    const map = new Map<string, PutObjectCommandOutput>();
-    const urls: FileMap = {};
+	const files: string[] = getFileList(config.sourceDir);
+	const fileBatches = createBatches(files, BATCH_SIZE);
 
-    const files: string[] = getFileList(config.sourceDir);
+	for (let i = 0; i < fileBatches.length; i++) {
+		const batch = fileBatches[i];
+		const uploadPromises = batch.map(async (file) => {
+			console.log(file);
+			const fileStream = fs.readFileSync(file);
+			console.log(config.sourceDir);
+			console.log(config.destinationDir);
+			const fileName = file.replace(config.sourceDir, "");
+			const fileKey = path.join(
+				config.destinationDir !== "" ? config.destinationDir : config.sourceDir,
+				fileName,
+			);
 
-    const uploadPromises = files.map(async (file) => {
-        console.log(file);
-        const fileStream = fs.readFileSync(file);
-        console.log(config.sourceDir);
-        console.log(config.destinationDir);
-        const fileName = file.replace(config.sourceDir, "");
-        const fileKey = path.join(config.destinationDir !== "" ? config.destinationDir : config.sourceDir, fileName);
+			if (fileKey.includes(".gitkeep")) {
+				return; // Skip the current iteration
+			}
 
-        if (fileKey.includes('.gitkeep')) {
-            return; // Skip the current iteration
-        }
+			console.log(fileKey);
+			const mimeType = mime.getType(file);
 
-        console.log(fileKey);
-        const mimeType = mime.getType(file);
+			const uploadParams: PutObjectCommandInput = {
+				Bucket: config.bucket,
+				Key: fileKey,
+				Body: fileStream,
+				ContentLength: fs.statSync(file).size,
+				ContentType: mimeType ?? "application/octet-stream",
+				...(config.cacheControl ? { CacheControl: config.cacheControl } : {}),
+			};
 
-        const uploadParams: PutObjectCommandInput = {
-            Bucket: config.bucket,
-            Key: fileKey,
-            Body: fileStream,
-            ContentLength: fs.statSync(file).size,
-            ContentType: mimeType ?? 'application/octet-stream',
-            ...(config.cacheControl ? { CacheControl: config.cacheControl } : {})
-        };
+			const cmd = new PutObjectCommand(uploadParams);
 
-        const cmd = new PutObjectCommand(uploadParams);
+			const digest = md5(fileStream);
 
-        const digest = md5(fileStream);
+			cmd.middlewareStack.add(
+				(next: any) => async (args: any) => {
+					args.request.headers["if-none-match"] = `"${digest}"`;
+					return await next(args);
+				},
+				{
+					step: "build",
+					name: "addETag",
+				},
+			);
 
-        cmd.middlewareStack.add((next: any) => async (args: any) => {
-            args.request.headers['if-none-match'] = `"${digest}"`;
-            return await next(args);
-        }, {
-            step: 'build',
-            name: 'addETag'
-        });
+			S3.send(cmd)
+				.then(() => {
+					console.log(`R2 Success - ${file}`);
+				})
+				.catch((err) => {
+					const error = err as S3ServiceException;
+					if (error.hasOwnProperty("$metadata")) {
+						if (error.$metadata.httpStatusCode !== 412)
+							// If-None-Match
+							throw error;
+					}
+				});
+		});
 
-        try {
-            const data = await S3.send(cmd);
-            console.log(`R2 Success - ${file}`);
-            map.set(file, data);
-
-            const fileUrl = await getSignedUrl(S3, cmd);
-            urls[file] = fileUrl;
-        } catch (err: unknown) {
-            const error = err as S3ServiceException;
-            if (error.hasOwnProperty("$metadata")) {
-                if (error.$metadata.httpStatusCode !== 412) // If-None-Match
-                    throw error;
-            }
-        }
-    });
-
-    await Promise.all(uploadPromises); // Wait for all uploads to finish
-
-    if (config.outputFileUrl) setOutput('file-urls', urls);
-    return map;
+		await Promise.all(uploadPromises);
+	}
 };
 
 run(config)
-    .then(result => setOutput('result', 'success'))
-    .catch(err => {
-        if (err.hasOwnProperty('$metadata')) {
-            console.error(`R2 Error - ${err.message}`);
-        } else {
-            console.error('Error', err);
-        }
+	.then((result) => setOutput("result", "success"))
+	.catch((err) => {
+		if (err.hasOwnProperty("$metadata")) {
+			console.error(`R2 Error - ${err.message}`);
+		} else {
+			console.error("Error", err);
+		}
 
-        setOutput('result', 'failure');
-        setFailed(err.message);
-    });
+		setOutput("result", "failure");
+		setFailed(err.message);
+	});
