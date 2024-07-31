@@ -39983,19 +39983,21 @@ const BATCH_SIZE = 10;
 const run = async (config) => {
     const files = getFileList(config.sourceDir);
     const fileBatches = createBatches(files, BATCH_SIZE);
+    console.log("Files count: ", files.length);
+    console.log("Batch size: ", BATCH_SIZE);
+    console.log("Batch count: ", fileBatches.length);
     for (let i = 0; i < fileBatches.length; i++) {
+        console.log(`Batch ${i + 1} of ${fileBatches.length}`);
         const batch = fileBatches[i];
+        console.time(`Batch ${i + 1}`);
         const uploadPromises = batch.map(async (file) => {
-            console.log(file);
+            console.log(`R2 Uploading - ${file}`);
             const fileStream = external_fs_.readFileSync(file);
-            console.log(config.sourceDir);
-            console.log(config.destinationDir);
             const fileName = file.replace(config.sourceDir, "");
             const fileKey = external_path_default().join(config.destinationDir !== "" ? config.destinationDir : config.sourceDir, fileName);
             if (fileKey.includes(".gitkeep")) {
                 return; // Skip the current iteration
             }
-            console.log(fileKey);
             const mimeType = mime_default().getType(file);
             const uploadParams = {
                 Bucket: config.bucket,
@@ -40016,7 +40018,7 @@ const run = async (config) => {
             });
             S3.send(cmd)
                 .then(() => {
-                console.log(`R2 Success - ${file}`);
+                console.log(`✔️ R2 Uploaded - ${file}`);
             })
                 .catch((err) => {
                 const error = err;
@@ -40027,7 +40029,9 @@ const run = async (config) => {
                 }
             });
         });
-        await Promise.all(uploadPromises);
+        await Promise.allSettled(uploadPromises);
+        console.timeEnd(`Batch ${i + 1}`);
+        console.log("✅ Batch done");
     }
 };
 run(config)
