@@ -51,7 +51,7 @@ const getFileList = (dir: string) => {
 	return files;
 };
 
-const BATCH_SIZE = 10;
+const BATCH_SIZE = 2;
 
 const run = async (config: R2Config) => {
 	const files: string[] = getFileList(config.sourceDir);
@@ -62,9 +62,9 @@ const run = async (config: R2Config) => {
 	console.log("Batch count: ", fileBatches.length);
 
 	for (let i = 0; i < fileBatches.length; i++) {
-		console.log(`Batch ${i + 1} of ${fileBatches.length}`);
+		console.log(`\nBatch ${i + 1} of ${fileBatches.length}`);
 		const batch = fileBatches[i];
-		console.time(`Batch ${i + 1}`);
+		console.time(`✅ Batch ${i + 1}`);
 		const uploadPromises = batch.map(async (file) => {
 			console.log(`R2 Uploading - ${file}`);
 
@@ -96,6 +96,7 @@ const run = async (config: R2Config) => {
 			const digest = md5(fileStream);
 
 			cmd.middlewareStack.add(
+				// biome-ignore lint/suspicious/noExplicitAny: we need the any here
 				(next: any) => async (args: any) => {
 					args.request.headers["if-none-match"] = `"${digest}"`;
 					return await next(args);
@@ -106,30 +107,34 @@ const run = async (config: R2Config) => {
 				},
 			);
 
-			S3.send(cmd)
+			const promise = S3.send(cmd)
 				.then(() => {
 					console.log(`✔️ R2 Uploaded - ${file}`);
 				})
 				.catch((err) => {
 					const error = err as S3ServiceException;
+					// biome-ignore lint/suspicious/noPrototypeBuiltins:
 					if (error.hasOwnProperty("$metadata")) {
+						console.log(`✖️ R2 failed - ${file}`);
 						if (error.$metadata.httpStatusCode !== 412)
 							// If-None-Match
 							throw error;
 					}
 				});
+
+			return promise;
 		});
 
 		await Promise.allSettled(uploadPromises);
 
-		console.timeEnd(`Batch ${i + 1}`);
-		console.log("✅ Batch done");
+		console.timeEnd(`✅ Batch ${i + 1}`);
 	}
 };
 
 run(config)
-	.then((result) => setOutput("result", "success"))
+	.then(() => setOutput("result", "success"))
 	.catch((err) => {
+		// biome-ignore lint/suspicious/noPrototypeBuiltins:
 		if (err.hasOwnProperty("$metadata")) {
 			console.error(`R2 Error - ${err.message}`);
 		} else {
