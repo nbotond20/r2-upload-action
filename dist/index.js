@@ -39944,16 +39944,27 @@ const createBatches = (items, batchSize) => {
 
 
 
+/* const config: R2Config = {
+    accountId: getInput("r2-account-id", { required: true }),
+    accessKeyId: getInput("r2-access-key-id", { required: true }),
+    secretAccessKey: getInput("r2-secret-access-key", { required: true }),
+    bucket: getInput("r2-bucket", { required: true }),
+    sourceDir: getInput("source-dir", { required: true }),
+    destinationDir: getInput("destination-dir"),
+    outputFileUrl: getInput("output-file-url") === "true",
+    cacheControl: getInput("cache-control"),
+    batchSize: Number.parseInt(getInput("batch-size") || "1"),
+}; */
 const config = {
-    accountId: (0,core.getInput)("r2-account-id", { required: true }),
-    accessKeyId: (0,core.getInput)("r2-access-key-id", { required: true }),
-    secretAccessKey: (0,core.getInput)("r2-secret-access-key", { required: true }),
-    bucket: (0,core.getInput)("r2-bucket", { required: true }),
-    sourceDir: (0,core.getInput)("source-dir", { required: true }),
-    destinationDir: (0,core.getInput)("destination-dir"),
-    outputFileUrl: (0,core.getInput)("output-file-url") === "true",
-    cacheControl: (0,core.getInput)("cache-control"),
-    batchSize: Number.parseInt((0,core.getInput)("batch-size") || "1"),
+    accountId: "dummy",
+    accessKeyId: "dummy",
+    secretAccessKey: "dummy",
+    bucket: "staging-root",
+    sourceDir: "asd",
+    destinationDir: "se",
+    outputFileUrl: undefined,
+    cacheControl: undefined,
+    batchSize: 10,
 };
 const S3 = new dist_cjs.S3Client({
     region: "auto",
@@ -40040,7 +40051,7 @@ const run = async (config) => {
             });
             return promise;
         });
-        await Promise.allSettled(uploadPromises);
+        await Promise.all(uploadPromises);
         console.timeEnd(`✅ Batch ${i + 1}`);
     }
 };
