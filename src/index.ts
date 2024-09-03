@@ -12,7 +12,7 @@ import md5 from "md5";
 import path from "path";
 import { createBatches } from "./createBatches.js";
 
-const config: R2Config = {
+/* const config: R2Config = {
 	accountId: getInput("r2-account-id", { required: true }),
 	accessKeyId: getInput("r2-access-key-id", { required: true }),
 	secretAccessKey: getInput("r2-secret-access-key", { required: true }),
@@ -22,6 +22,17 @@ const config: R2Config = {
 	outputFileUrl: getInput("output-file-url") === "true",
 	cacheControl: getInput("cache-control"),
 	batchSize: Number.parseInt(getInput("batch-size") || "1"),
+}; */
+const config: R2Config = {
+	accountId: "dummy",
+	accessKeyId: "dummy",
+	secretAccessKey: "dummy",
+	bucket: "staging-root",
+	sourceDir: "asd",
+	destinationDir: "se",
+	outputFileUrl: undefined,
+	cacheControl: undefined,
+	batchSize: 10,
 };
 
 const S3 = new S3Client({
@@ -132,7 +143,7 @@ const run = async (config: R2Config) => {
 			return promise;
 		});
 
-		await Promise.allSettled(uploadPromises);
+		await Promise.all(uploadPromises);
 
 		console.timeEnd(`✅ Batch ${i + 1}`);
 	}
