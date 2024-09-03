@@ -114,11 +114,19 @@ const run = async (config: R2Config) => {
 					const error = err as S3ServiceException;
 					// biome-ignore lint/suspicious/noPrototypeBuiltins:
 					if (error.hasOwnProperty("$metadata")) {
+						if (error.$metadata.httpStatusCode === 412) {
+							console.log(`✔️ R2 Not Modified - ${file}`);
+							return;
+						}
+
 						console.log(`✖️ R2 failed - ${file}`);
-						if (error.$metadata.httpStatusCode !== 412)
+						if (error.$metadata.httpStatusCode !== 412) {
 							// If-None-Match
 							throw error;
+						}
 					}
+
+					throw error;
 				});
 
 			return promise;
