@@ -39916,17 +39916,17 @@ var __webpack_exports__ = {};
 var core = __nccwpck_require__(19093);
 // EXTERNAL MODULE: ./node_modules/.pnpm/@aws-sdk+client-s3@3.395.0/node_modules/@aws-sdk/client-s3/dist-cjs/index.js
 var dist_cjs = __nccwpck_require__(75241);
-// EXTERNAL MODULE: external "fs"
-var external_fs_ = __nccwpck_require__(57147);
+;// CONCATENATED MODULE: external "node:fs"
+const external_node_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs");
 // EXTERNAL MODULE: ./node_modules/.pnpm/mime@3.0.0/node_modules/mime/index.js
 var mime = __nccwpck_require__(19936);
 var mime_default = /*#__PURE__*/__nccwpck_require__.n(mime);
 // EXTERNAL MODULE: ./node_modules/.pnpm/md5@2.3.0/node_modules/md5/md5.js
 var md5 = __nccwpck_require__(33007);
 var md5_default = /*#__PURE__*/__nccwpck_require__.n(md5);
-// EXTERNAL MODULE: external "path"
-var external_path_ = __nccwpck_require__(71017);
-var external_path_default = /*#__PURE__*/__nccwpck_require__.n(external_path_);
+;// CONCATENATED MODULE: external "node:path"
+const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
+var external_node_path_default = /*#__PURE__*/__nccwpck_require__.n(external_node_path_namespaceObject);
 ;// CONCATENATED MODULE: ./src/createBatches.ts
 const createBatches = (items, batchSize) => {
     const batches = [];
@@ -39944,28 +39944,20 @@ const createBatches = (items, batchSize) => {
 
 
 
-/* const config: R2Config = {
-    accountId: getInput("r2-account-id", { required: true }),
-    accessKeyId: getInput("r2-access-key-id", { required: true }),
-    secretAccessKey: getInput("r2-secret-access-key", { required: true }),
-    bucket: getInput("r2-bucket", { required: true }),
-    sourceDir: getInput("source-dir", { required: true }),
-    destinationDir: getInput("destination-dir"),
-    outputFileUrl: getInput("output-file-url") === "true",
-    cacheControl: getInput("cache-control"),
-    batchSize: Number.parseInt(getInput("batch-size") || "1"),
-}; */
 const config = {
-    accountId: "dummy",
-    accessKeyId: "dummy",
-    secretAccessKey: "dummy",
-    bucket: "staging-root",
-    sourceDir: "asd",
-    destinationDir: "se",
-    outputFileUrl: undefined,
-    cacheControl: undefined,
-    batchSize: 10,
+    accountId: core.getInput("r2-account-id", { required: true }),
+    accessKeyId: core.getInput("r2-access-key-id", { required: true }),
+    secretAccessKey: core.getInput("r2-secret-access-key", { required: true }),
+    bucket: core.getInput("r2-bucket", { required: true }),
+    sourceDir: core.getInput("source-dir", { required: true }),
+    destinationDir: core.getInput("destination-dir"),
+    outputFileUrl: core.getInput("output-file-url") === "true",
+    cacheControl: core.getInput("cache-control"),
+    batchSize: Number.parseInt(core.getInput("batch-size") || "1"),
 };
+core.setSecret("r2-secret-access-key");
+core.setSecret("r2-access-key-id");
+core.setSecret("r2-account-id");
 const S3 = new dist_cjs.S3Client({
     region: "auto",
     endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
@@ -39976,7 +39968,7 @@ const S3 = new dist_cjs.S3Client({
 });
 const getFileList = (dir) => {
     let files = [];
-    const items = external_fs_.readdirSync(dir, {
+    const items = external_node_fs_namespaceObject.readdirSync(dir, {
         withFileTypes: true,
     });
     for (const item of items) {
@@ -39994,18 +39986,18 @@ const getFileList = (dir) => {
 const run = async (config) => {
     const files = getFileList(config.sourceDir);
     const fileBatches = createBatches(files, config.batchSize);
-    console.log("Files count: ", files.length);
-    console.log("Batch size: ", config.batchSize);
-    console.log("Batch count: ", fileBatches.length);
+    core.info(`Files count: ${files.length}`);
+    core.info(`Batch size: ${config.batchSize}`);
+    core.info(`Batch count: ${fileBatches.length}`);
     for (let i = 0; i < fileBatches.length; i++) {
-        console.log(`\nBatch ${i + 1} of ${fileBatches.length}`);
+        core.startGroup(`Batch ${i + 1} of ${fileBatches.length}`);
         const batch = fileBatches[i];
-        console.time(`✅ Batch ${i + 1}`);
+        const startTime = Date.now();
         const uploadPromises = batch.map(async (file) => {
-            console.log(`R2 Uploading - ${file}`);
-            const fileStream = external_fs_.readFileSync(file);
+            core.info(`R2 Uploading - ${file}`);
+            const fileStream = external_node_fs_namespaceObject.readFileSync(file);
             const fileName = file.replace(config.sourceDir, "");
-            const fileKey = external_path_default().join(config.destinationDir !== "" ? config.destinationDir : config.sourceDir, fileName);
+            const fileKey = external_node_path_default().join(config.destinationDir !== "" ? config.destinationDir : config.sourceDir, fileName);
             if (fileKey.includes(".gitkeep")) {
                 return; // Skip the current iteration
             }
@@ -40014,7 +40006,7 @@ const run = async (config) => {
                 Bucket: config.bucket,
                 Key: fileKey,
                 Body: fileStream,
-                ContentLength: external_fs_.statSync(file).size,
+                ContentLength: external_node_fs_namespaceObject.statSync(file).size,
                 ContentType: mimeType ?? "application/octet-stream",
                 ...(config.cacheControl ? { CacheControl: config.cacheControl } : {}),
             };
@@ -40031,42 +40023,34 @@ const run = async (config) => {
             });
             const promise = S3.send(cmd)
                 .then(() => {
-                console.log(`✔️ R2 Uploaded - ${file}`);
+                core.info(`✔️ R2 Uploaded - ${file}`);
             })
                 .catch((err) => {
                 const error = err;
                 // biome-ignore lint/suspicious/noPrototypeBuiltins:
                 if (error.hasOwnProperty("$metadata")) {
                     if (error.$metadata.httpStatusCode === 412) {
-                        console.log(`✔️ R2 Not Modified - ${file}`);
+                        core.info(`✔️ R2 Not Modified - ${file}`);
                         return;
                     }
-                    console.log(`✖️ R2 failed - ${file}`);
-                    if (error.$metadata.httpStatusCode !== 412) {
-                        // If-None-Match
-                        throw error;
-                    }
+                    core.error(`✖️ R2 failed - ${file}`);
+                    throw error;
                 }
                 throw error;
             });
             return promise;
         });
         await Promise.all(uploadPromises);
-        console.timeEnd(`✅ Batch ${i + 1}`);
+        core.endGroup();
+        const endTime = Date.now();
+        const elapsedTime = (endTime - startTime) / 1000;
+        core.info(`↪️ done in ${elapsedTime} seconds`);
     }
 };
-run(config)
-    .then(() => (0,core.setOutput)("result", "success"))
-    .catch((err) => {
-    // biome-ignore lint/suspicious/noPrototypeBuiltins:
-    if (err.hasOwnProperty("$metadata")) {
-        console.error(`R2 Error - ${err.message}`);
-    }
-    else {
-        console.error("Error", err);
-    }
-    (0,core.setOutput)("result", "failure");
-    (0,core.setFailed)(err.message);
+run(config).catch((error) => {
+    core.error("Error: ", error);
+    core.setFailed(error.message);
+    process.exit(1);
 });
 
 })();

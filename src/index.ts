@@ -1,39 +1,32 @@
 import type { R2Config } from "./types.js";
-import { getInput, setOutput, setFailed } from "@actions/core";
+import * as core from "@actions/core";
 import {
 	S3Client,
 	type PutObjectCommandInput,
 	PutObjectCommand,
 	type S3ServiceException,
 } from "@aws-sdk/client-s3";
-import * as fs from "fs";
+import * as fs from "node:fs";
 import mime from "mime";
 import md5 from "md5";
-import path from "path";
+import path from "node:path";
 import { createBatches } from "./createBatches.js";
 
-/* const config: R2Config = {
-	accountId: getInput("r2-account-id", { required: true }),
-	accessKeyId: getInput("r2-access-key-id", { required: true }),
-	secretAccessKey: getInput("r2-secret-access-key", { required: true }),
-	bucket: getInput("r2-bucket", { required: true }),
-	sourceDir: getInput("source-dir", { required: true }),
-	destinationDir: getInput("destination-dir"),
-	outputFileUrl: getInput("output-file-url") === "true",
-	cacheControl: getInput("cache-control"),
-	batchSize: Number.parseInt(getInput("batch-size") || "1"),
-}; */
 const config: R2Config = {
-	accountId: "dummy",
-	accessKeyId: "dummy",
-	secretAccessKey: "dummy",
-	bucket: "staging-root",
-	sourceDir: "asd",
-	destinationDir: "se",
-	outputFileUrl: undefined,
-	cacheControl: undefined,
-	batchSize: 10,
+	accountId: core.getInput("r2-account-id", { required: true }),
+	accessKeyId: core.getInput("r2-access-key-id", { required: true }),
+	secretAccessKey: core.getInput("r2-secret-access-key", { required: true }),
+	bucket: core.getInput("r2-bucket", { required: true }),
+	sourceDir: core.getInput("source-dir", { required: true }),
+	destinationDir: core.getInput("destination-dir"),
+	outputFileUrl: core.getInput("output-file-url") === "true",
+	cacheControl: core.getInput("cache-control"),
+	batchSize: Number.parseInt(core.getInput("batch-size") || "1"),
 };
+
+core.setSecret("r2-secret-access-key");
+core.setSecret("r2-access-key-id");
+core.setSecret("r2-account-id");
 
 const S3 = new S3Client({
 	region: "auto",
@@ -67,16 +60,17 @@ const run = async (config: R2Config) => {
 	const files: string[] = getFileList(config.sourceDir);
 	const fileBatches = createBatches(files, config.batchSize);
 
-	console.log("Files count: ", files.length);
-	console.log("Batch size: ", config.batchSize);
-	console.log("Batch count: ", fileBatches.length);
+	core.info(`Files count: ${files.length}`);
+	core.info(`Batch size: ${config.batchSize}`);
+	core.info(`Batch count: ${fileBatches.length}`);
 
 	for (let i = 0; i < fileBatches.length; i++) {
-		console.log(`\nBatch ${i + 1} of ${fileBatches.length}`);
+		core.startGroup(`Batch ${i + 1} of ${fileBatches.length}`);
 		const batch = fileBatches[i];
-		console.time(`✅ Batch ${i + 1}`);
+
+		const startTime = Date.now();
 		const uploadPromises = batch.map(async (file) => {
-			console.log(`R2 Uploading - ${file}`);
+			core.info(`R2 Uploading - ${file}`);
 
 			const fileStream = fs.readFileSync(file);
 
@@ -119,22 +113,19 @@ const run = async (config: R2Config) => {
 
 			const promise = S3.send(cmd)
 				.then(() => {
-					console.log(`✔️ R2 Uploaded - ${file}`);
+					core.info(`✔️ R2 Uploaded - ${file}`);
 				})
 				.catch((err) => {
 					const error = err as S3ServiceException;
 					// biome-ignore lint/suspicious/noPrototypeBuiltins:
 					if (error.hasOwnProperty("$metadata")) {
 						if (error.$metadata.httpStatusCode === 412) {
-							console.log(`✔️ R2 Not Modified - ${file}`);
+							core.info(`✔️ R2 Not Modified - ${file}`);
 							return;
 						}
 
-						console.log(`✖️ R2 failed - ${file}`);
-						if (error.$metadata.httpStatusCode !== 412) {
-							// If-None-Match
-							throw error;
-						}
+						core.error(`✖️ R2 failed - ${file}`);
+						throw error;
 					}
 
 					throw error;
@@ -144,21 +135,15 @@ const run = async (config: R2Config) => {
 		});
 
 		await Promise.all(uploadPromises);
-
-		console.timeEnd(`✅ Batch ${i + 1}`);
+		core.endGroup();
+		const endTime = Date.now();
+		const elapsedTime = (endTime - startTime) / 1000;
+		core.info(`↪️ done in ${elapsedTime} seconds`);
 	}
 };
 
-run(config)
-	.then(() => setOutput("result", "success"))
-	.catch((err) => {
-		// biome-ignore lint/suspicious/noPrototypeBuiltins:
-		if (err.hasOwnProperty("$metadata")) {
-			console.error(`R2 Error - ${err.message}`);
-		} else {
-			console.error("Error", err);
-		}
-
-		setOutput("result", "failure");
-		setFailed(err.message);
-	});
+run(config).catch((error) => {
+	core.error("Error: ", error);
+	core.setFailed(error.message);
+	process.exit(1);
+});

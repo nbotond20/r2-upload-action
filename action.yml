@@ -1,43 +1,38 @@
-name: 'R2 Upload Action'
-description: 'GitHub Action to upload files to a Cloudflare R2 bucket'
-author: 'ryand56'
+name: "R2 Upload Action"
+description: "GitHub Action to upload files to a Cloudflare R2 bucket"
+author: "ryand56"
 branding:
-  icon: 'upload-cloud'
-  color: 'white'
+  icon: "upload-cloud"
+  color: "white"
 inputs:
   r2-account-id:
-    description: ''
+    description: ""
     required: true
   r2-access-key-id:
-    description: ''
+    description: ""
     required: true
   r2-secret-access-key:
-    description: ''
+    description: ""
     required: true
   r2-bucket:
-    description: ''
+    description: ""
     required: true
   source-dir:
-    description: ''
+    description: ""
     required: true
   destination-dir:
-    description: ''
+    description: ""
     required: false
   output-file-url:
-    description: ''
-    default: 'true'
+    description: ""
+    default: "true"
     required: false
   cache-control:
-    description: ''
+    description: ""
     required: false
   batch-size:
-    description: ''
+    description: ""
     required: false
-outputs:
-  result:
-    description: '`success` or `failure`'
-  file-urls:
-    description: ''
 runs:
-  using: 'node16'
-  main: 'dist/index.js'
+  using: "node20"
+  main: "dist/index.js"
