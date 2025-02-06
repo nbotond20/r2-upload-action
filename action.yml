@@ -33,6 +33,9 @@ inputs:
   batch-size:
     description: ""
     required: false
+  s3-endpoint:
+    description: ""
+    required: false
 runs:
   using: "node20"
   main: "dist/index.js"
