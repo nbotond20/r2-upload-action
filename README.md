@@ -35,6 +35,8 @@ Change `destination-dir` input to specify the location of where the directory wi
     source-dir: src
     destination-dir: artifacts # Can be anything as long as it is an actual path
     output-file-url: 'true' # defaults to true
+    region: "us-east-1" # defaults to auto
+    endpoint: "https://r2.cloudflare.com" # defaults to R2 endpoint based on accountId
 ```
 See the latest [action.yml](https://github.com/ryand56/r2-upload-action/blob/master/action.yml) for every input and output or take a look below.
 <!-- -->
