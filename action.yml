@@ -36,6 +36,9 @@ inputs:
   s3-endpoint:
     description: ""
     required: false
+  region:
+    description: ""
+    required: false
 runs:
   using: "node20"
   main: "dist/index.js"

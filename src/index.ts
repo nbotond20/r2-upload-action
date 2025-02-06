@@ -23,6 +23,7 @@ const config: R2Config = {
 	cacheControl: core.getInput("cache-control"),
 	batchSize: Number.parseInt(core.getInput("batch-size") || "1"),
 	endpoint: core.getInput("s3-endpoint"),
+	region: core.getInput("region"),
 };
 
 core.setSecret("r2-secret-access-key");
@@ -30,8 +31,8 @@ core.setSecret("r2-access-key-id");
 core.setSecret("r2-account-id");
 
 const S3 = new S3Client({
-	region: "auto",
-	endpoint: config.endpoint ?? `https://${config.accountId}.r2.cloudflarestorage.com`,
+	region: config.region || "auto",
+	endpoint: config.endpoint || `https://${config.accountId}.r2.cloudflarestorage.com`,
 	credentials: {
 		accessKeyId: config.accessKeyId,
 		secretAccessKey: config.secretAccessKey,

@@ -9,6 +9,7 @@ export interface R2Config {
     cacheControl: string
     batchSize: number
     endpoint?: string
+    region?: string
 }
 
 export interface FileMap {
